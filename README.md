@@ -91,9 +91,3 @@ WITH CHECK (bucket_id = 'fileshare-uploads');
 This project is open-source and available under the MIT License.
 
 
----
-
-### Why this is a great README:
-1. **Professional Layout:** It clearly explains *what* the project is and *how* it handles data under the hood.
-2. **Clear Setup Instructions:** Anyone checking out your GitHub will instantly see how to run it without breaking the security rules we just built.
-3. **Database & SQL Included:** It keeps a record of the exact Supabase storage policies you need to run, making sure you never lose them if you need to build the project again from scratch!
