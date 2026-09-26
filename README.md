@@ -1,93 +1,234 @@
-Markdown
-# ☁️ Cloud-Native File Sharing Application
+# FileShare — Cloud-Native File Sharing Application
 
-A high-performance, modern file-sharing application built with **Spring Boot 3**, **Neon PostgreSQL**, and **Supabase Cloud Storage**. This system supports fast file uploads (tested up to 400MB+) and serves direct, secure, high-speed public CDN downloads via unique access codes.
+A cloud-native file-sharing application built with **Spring Boot 3**, **PostgreSQL**, and **Supabase Cloud Storage**. FileShare allows users to upload files and share them through unique access codes with cloud-backed storage and persistent metadata.
 
----
+## Features
 
-## 🚀 Key Features
-* **Cloud Storage Integration:** Streams physical assets directly to a public Supabase Storage CDN bucket.
-* **Relational Metadata Tracker:** Stores upload timestamps, generated UUID file tokens, and access codes inside a managed Neon PostgreSQL database.
-* **Secure Architecture:** Built using strict Environment Variable configurations to keep sensitive API keys completely hidden from source control.
-* **Containerized Deployment:** Fully Dockerized using multi-stage builds to produce a lightweight runtime image.
+* **Cloud File Storage** — Stores uploaded files in Supabase Cloud Storage.
+* **Unique File Sharing** — Generates unique access codes for sharing files.
+* **Persistent Metadata** — Stores file metadata, UUIDs, timestamps, and access codes in PostgreSQL.
+* **Large File Support** — Tested with file uploads of **400MB+**.
+* **Secure Configuration** — Database credentials and API keys are managed through environment-specific configuration and excluded from source control.
+* **Docker Support** — Containerized application using a multi-stage Docker build.
+* **RESTful Backend** — Provides APIs for file upload, retrieval, sharing, and deletion.
 
----
+## Architecture
 
-## 🛠️ Architecture & Data Flow
+```text
+                    User
+                     |
+                     v
+              Spring Boot API
+                     |
+          +----------+----------+
+          |                     |
+          v                     v
+   PostgreSQL Database     Supabase Storage
+   (File Metadata)          (File Content)
+```
 
-1. **Upload:** User sends a file -> Spring Boot generates a unique UUID filename -> Saves text metadata to Neon DB -> Streams binary file to Supabase Storage via HTTP Client.
-2. **Download:** User requests a file using a unique code -> Backend checks Neon DB -> Redirects browser natively via `302 Found` to the Supabase Public CDN URL.
+## Data Flow
 
----
+### Upload
 
-## 📋 Prerequisites
-Before running or developing this project, ensure you have the following installed:
+```text
+Client
+  |
+  | Upload File
+  v
+Spring Boot
+  |
+  +-- Generate UUID
+  |
+  +-- Generate Share Code
+  |
+  +-- Store Metadata ------> PostgreSQL
+  |
+  +-- Upload File ---------> Supabase Storage
+```
+
+### Download
+
+```text
+Client
+  |
+  | Share Code
+  v
+Spring Boot
+  |
+  | Lookup Metadata
+  v
+PostgreSQL
+  |
+  | File Location
+  v
+Supabase Storage
+  |
+  v
+File Download
+```
+
+## Tech Stack
+
+| Technology       | Purpose                            |
+| ---------------- | ---------------------------------- |
+| Java 17+         | Backend development                |
+| Spring Boot 3    | REST API and application framework |
+| PostgreSQL       | File metadata persistence          |
+| Supabase Storage | Cloud file storage                 |
+| Maven            | Dependency management and build    |
+| Docker           | Containerization                   |
+
+## Project Structure
+
+```text
+src/
+└── main/
+    ├── java/
+    │   └── ...
+    └── resources/
+        ├── application.properties.example
+        └── application.properties
+```
+
+The backend follows a layered architecture separating API handling, business logic, storage integration, and database access.
+
+## Prerequisites
+
+Before running the project, install:
+
 * Java 17 or higher
 * Maven 3.6+
-* Docker
+* PostgreSQL or a PostgreSQL-compatible database
+* Supabase project
+* Docker (optional)
 
----
+## Local Setup
 
-## ⚙️ Local Configuration (Security First)
+### 1. Clone the Repository
 
-This project strictly adheres to security best practices. The `src/main/resources/application.properties` file is excluded from git tracking via `.gitignore`. 
+```bash
+git clone <repository-url>
+cd fileshare
+```
 
-To set up the project locally:
+### 2. Configure the Application
 
-1. Copy the provided template file:
-   ```bash
-   cp src/main/resources/application.properties.example src/main/resources/application.properties
-Open src/main/resources/application.properties and populate it with your personal database credentials and Supabase tokens:
+Copy the example configuration:
 
-Properties
-# Neon Database Setup
-spring.datasource.url=jdbc:postgresql://<your-neon-host>/neondb
-spring.datasource.username=<your-username>
-spring.datasource.password=<your-password>
+```bash
+cp src/main/resources/application.properties.example \
+   src/main/resources/application.properties
+```
+
+Configure the required database and Supabase credentials:
+
+```properties
+# PostgreSQL
+spring.datasource.url=jdbc:postgresql://<host>/<database>
+spring.datasource.username=<username>
+spring.datasource.password=<password>
+
 spring.jpa.hibernate.ddl-auto=update
 
-# Supabase Storage CDN Configuration
-supabase.url=https://<your-project-id>.supabase.co/storage/v1/object/fileshare-uploads/
-supabase.key=<your-anon-public-key>
-📦 Running the Application
-Option 1: Standard Spring Boot Execution
-Open the root directory in your terminal and run:
+# Supabase Storage
+supabase.url=https://<project-id>.supabase.co
+supabase.key=<supabase-key>
+```
 
-Bash
+Do not commit `application.properties` or any file containing credentials to the repository.
+
+## Running the Application
+
+### Option 1: Maven
+
+```bash
 ./mvnw spring-boot:run
-Option 2: Docker Container (Multi-Stage Build)
-Build the lightweight, secure runtime production image:
+```
 
-Bash
+Or, if Maven is installed globally:
+
+```bash
+mvn spring-boot:run
+```
+
+The application will start on the configured port.
+
+### Option 2: Docker
+
+Build the image:
+
+```bash
 docker build -t fileshare-backend .
-Spin up the container while passing your environment properties securely on execution:
+```
 
-Bash
-docker run -d -p 8080:8080 --name fileshare-app \
-  -e DB_URL="jdbc:postgresql://your-neon-host/neondb" \
-  -e DB_USERNAME="your_user" \
-  -e DB_PASSWORD="your_password" \
+Run the container:
+
+```bash
+docker run -d \
+  -p 8080:8080 \
+  --name fileshare-app \
   fileshare-backend
-🔒 Supabase Storage Security Policy (RLS)
-For download links to function seamlessly via public CDN routing, execute the following script in your Supabase SQL Editor to establish proper Row Level Security (RLS) configurations:
+```
 
-SQL
--- Drop old policy if it exists
-DROP POLICY IF EXISTS "Allow public downloads" ON storage.objects;
+Environment variables can be supplied at runtime rather than storing credentials inside the image.
 
--- Enforce bucket public accessibility status
-UPDATE storage.buckets SET public = true WHERE id = 'fileshare-uploads';
+## Storage Configuration
 
--- Allow any user to fetch files via the CDN pipeline
-CREATE POLICY "Allow public downloads" 
-ON storage.objects FOR SELECT 
-USING (bucket_id = 'fileshare-uploads');
+FileShare uses a Supabase Storage bucket for storing uploaded files.
 
--- Allow the Spring Boot backend to write files inside the bucket
-CREATE POLICY "Allow public uploads" 
-ON storage.objects FOR INSERT 
-WITH CHECK (bucket_id = 'fileshare-uploads');
-📄 License
-This project is open-source and available under the MIT License.
+The database stores metadata such as:
 
+```text
+File ID
+Original File Name
+Generated UUID
+Share Code
+Upload Timestamp
+File Location
+```
 
+The actual binary file is stored separately in cloud storage.
+
+This separation keeps file metadata and file content independent while allowing the backend to manage file-sharing operations.
+
+## Security
+
+The project follows environment-based configuration for sensitive information.
+
+Sensitive values such as:
+
+* Database passwords
+* Database connection strings
+* Supabase keys
+* API credentials
+
+should never be committed to source control.
+
+The repository uses `.gitignore` to prevent local configuration files containing secrets from being tracked.
+
+## Scalability Considerations
+
+The application separates metadata storage from binary file storage, allowing each layer to scale independently.
+
+The architecture can be extended with:
+
+* File expiration
+* Authentication and authorization
+* Download limits
+* File size restrictions
+* Access control
+* File deletion policies
+* Download analytics
+* Object storage lifecycle policies
+
+## License
+
+This project is open-source and available under the **MIT License**.
+
+## Author
+
+**Harsh Mahajan**
+
+B.Tech Information Technology
+Walchand College of Engineering, Sangli
